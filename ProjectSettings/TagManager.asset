@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!78 &1
+TagManager:
+  serializedVersion: 2
+  tags:
+  - Portal
+  layers:
+  - Default
+  - TransparentFX
+  - Ignore Raycast
+  - Ground
+  - Water
+  - UI
+  - Platform
+  - DeadZone
+  - Skill
+  - Monster
+  - Player
+  - PostProcessing
+  - Item
+  - SpecialSkill
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  m_SortingLayers:
+  - name: Background
+    uniqueID: 706011395
+    locked: 0
+  - name: Default
+    uniqueID: 0
+    locked: 0
+  - name: Skill
+    uniqueID: 301003081
+    locked: 0
+  - name: Foreground
+    uniqueID: 1761707603
+    locked: 0
+  - name: UI
+    uniqueID: 1770740051
+    locked: 0
