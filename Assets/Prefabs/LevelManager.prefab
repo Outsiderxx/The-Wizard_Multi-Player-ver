@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5583998289589854659}
   - component: {fileID: 5583998289589854658}
+  - component: {fileID: 5583998288855000683}
   m_Layer: 0
   m_Name: LevelManager
   m_TagString: Untagged
@@ -43,10 +44,36 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 383bafcfff714e94f9394032a65f0e4b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  imageEffectManager: {fileID: 0}
+  virtualCamera: {fileID: 0}
+  monsterRoot: {fileID: 0}
+  characterRoot: {fileID: 0}
+  playerUI: {fileID: 0}
   characterPrefabs:
   - {fileID: 5102619338495884296, guid: c2c20f4a0bf00f640ba5e36831ddbcda, type: 3}
   - {fileID: 8897658543727665399, guid: 0b3d034f7895cfe48bf8ec9771a68e38, type: 3}
-  imageEffectManager: {fileID: 0}
-  virtualCamera: {fileID: 0}
-  characterSpawnPosition: {x: -12, y: 0, z: 0}
-  choosedCharacterIndex: 0
+  monsterPrefab: {fileID: 1136484672296157337, guid: 8472fabd072f2f14390d35a46040c8fa, type: 3}
+  defaultCharacterSpawnPosition: {x: -11, y: 0, z: 0}
+  defaultCharacterTwoSpawnPosition: {x: -5, y: 0, z: 0}
+--- !u!114 &5583998288855000683
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5583998289589854657}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa584fbee541324448dd18d8409c7a41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ObservedComponentsFoldoutOpen: 1
+  Group: 0
+  prefixField: -1
+  Synchronization: 1
+  OwnershipTransfer: 0
+  observableSearch: 2
+  ObservedComponents: []
+  sceneViewId: 0
+  InstantiationId: 0
+  isRuntimeInstantiated: 0

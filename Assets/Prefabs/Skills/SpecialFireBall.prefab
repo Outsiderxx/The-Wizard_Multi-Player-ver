@@ -46,9 +46,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 820e9f94c08fd8341bc4d15386ef6e01, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  damage: 8
   moveSpeed: 25
   maxMoveDistance: 7
-  damage: 10
+  woundRampTexture: {fileID: 0}
 --- !u!212 &7292285573818465367
 SpriteRenderer:
   m_ObjectHideFlags: 0

@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
+using Photon.Pun;
 
 public class Monster : MonoBehaviour
 {
@@ -25,6 +26,8 @@ public class Monster : MonoBehaviour
     public Transform root { get; private set; }
     public SpriteRenderer sprite { get; private set; }
     private Rigidbody2D body;
+    private PhotonView view;
+
     private float _currentHealthPoints = 0;
     private float currentAttackCD = 0;
     private bool isRecovered = false;
@@ -51,6 +54,10 @@ public class Monster : MonoBehaviour
             }
             this._currentHealthPoints = Mathf.Max(0, value);
             this.OnHealthPointsChanged();
+            if (this.currentHealthPoints == 0)
+            {
+                this.OnDead();
+            }
         }
     }
 
@@ -77,6 +84,7 @@ public class Monster : MonoBehaviour
         this.sprite = this.transform.Find("Sprite").GetComponent<SpriteRenderer>();
         this.root = this.sprite.transform.Find("Root");
         this.foot = this.sprite.transform.Find("Foot");
+        this.view = this.GetComponent<PhotonView>();
     }
 
     private void Start()
@@ -111,7 +119,10 @@ public class Monster : MonoBehaviour
             if (distance <= this.attackDistance)
             {
                 this.body.velocity = Vector2.zero;
-                this.Attack(player.GetComponent<CharacterState>());
+                if (PhotonNetwork.IsMasterClient && this.currentAttackCD == 0)
+                {
+                    this.view.RPC("RPC_Attack", RpcTarget.All, player.GetComponent<PhotonView>().ViewID);
+                }
                 return;
             }
         }
@@ -142,6 +153,15 @@ public class Monster : MonoBehaviour
 
     public void Hurt(float damage)
     {
+        if (PhotonNetwork.IsMasterClient)
+        {
+            this.view.RPC("RPC_Hurt", RpcTarget.All, damage);
+        }
+    }
+
+    [PunRPC]
+    private void RPC_Hurt(float damage)
+    {
         this.currentHealthPoints -= damage;
         this.sprite.color = Color.red;
         this.sprite.DOColor(Color.white, 0.3f).Play();
@@ -149,10 +169,6 @@ public class Monster : MonoBehaviour
 
     protected void Attack(CharacterState player)
     {
-        if (this.currentAttackCD != 0)
-        {
-            return;
-        }
         this.currentAttackCD = this.attackCD;
         player.Hurt(this.damage);
         Vector2 attackDirection = this.isFacingRight ? Vector2.right : Vector2.left;
@@ -160,13 +176,15 @@ public class Monster : MonoBehaviour
         player.GetComponent<Rigidbody2D>().AddForce(attackDirection * this.attackForce);
     }
 
+    [PunRPC]
+    private void RPC_Attack(int viewID)
+    {
+        this.Attack(PhotonView.Find(viewID).GetComponent<CharacterState>());
+    }
+
     private void OnHealthPointsChanged()
     {
         this.healthPointBar.value = this.currentHealthPoints / this.maxHealthPoints;
-        if (this.currentHealthPoints == 0)
-        {
-            this.OnDead();
-        }
     }
 
     private void Flip()
@@ -183,21 +201,32 @@ public class Monster : MonoBehaviour
         this.body.bodyType = RigidbodyType2D.Kinematic;
         this.GetComponentInChildren<Collider2D>().enabled = false;
         AudioManager.Instance.PlayEffect("Monster_Dead");
-        bool hasDroppedItem = false;
-        if (Random.Range(0, 10) >= 7)
+        if (PhotonNetwork.IsMasterClient)
         {
-            hasDroppedItem = true;
-            Instantiate(this.healthPointItem, this.transform.position, Quaternion.identity);
-        }
-        if (!hasDroppedItem && Random.Range(0, 10) >= 7)
-        {
-            Instantiate(this.ManaPointItem, this.transform.position, Quaternion.identity);
+            this.DropItems();
         }
         Sequence sequence = DOTween.Sequence();
         sequence.Append(DOTween.To(() => this.sprite.material.GetFloat("_DissolvePos"), (value) => this.sprite.material.SetFloat("_DissolvePos", value), 1f, 0.5f));
         sequence.AppendCallback(() =>
         {
-            Destroy(this.gameObject);
+            if (this.view.IsMine)
+            {
+                PhotonNetwork.Destroy(this.gameObject);
+            }
         });
+    }
+
+    private void DropItems()
+    {
+        bool hasDroppedItem = false;
+        if (Random.Range(0, 10) >= 7)
+        {
+            hasDroppedItem = true;
+            PhotonNetwork.Instantiate(this.healthPointItem.name, this.transform.position, Quaternion.identity);
+        }
+        if (!hasDroppedItem && Random.Range(0, 10) >= 7)
+        {
+            PhotonNetwork.Instantiate(this.ManaPointItem.name, this.transform.position, Quaternion.identity);
+        }
     }
 }

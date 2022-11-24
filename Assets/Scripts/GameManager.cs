@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using Photon.Pun;
 
 public class GameManager : MonoBehaviour
 {
@@ -15,9 +16,9 @@ public class GameManager : MonoBehaviour
 
     private Slider progressBar;
     private Text progressText;
+
     private SavedRecord _saveRecord = null;
 
-    public int chosenCharacterIndex { get; private set; } = 0;
     public SavedRecord savedRecord
     {
         get
@@ -32,7 +33,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-
     private void Awake()
     {
         GameManager.Instance = this;
@@ -46,21 +46,29 @@ public class GameManager : MonoBehaviour
         if (Input.GetKeyUp(KeyCode.Delete))
         {
             PlayerPrefs.DeleteAll();
+            PlayerPrefs.Save();
         }
     }
 
-    public void StartNewGame(int chosenCharacterIndex)
+    public void StartNewGame()
     {
-        this.chosenCharacterIndex = chosenCharacterIndex;
+        if (PhotonNetwork.IsMasterClient)
+        {
+            PhotonNetwork.CurrentRoom.IsOpen = false;
+        }
+        ExitGames.Client.Photon.Hashtable customProperties = PhotonNetwork.LocalPlayer.CustomProperties;
+        customProperties["Ring of Eternity"] = CollectionHelper.IsCollectionCollected("Ring of Eternity");
+        customProperties["Ring of Wizard"] = CollectionHelper.IsCollectionCollected("Ring of Wizard");
+        customProperties["Ring of Strength"] = CollectionHelper.IsCollectionCollected("Ring of Strength");
         StartCoroutine(this.LoadLevel(GameManager.levelNames[0]));
     }
 
-    public void ResumeSavedGame(SavedRecord savedRecord)
-    {
-        this.savedRecord = savedRecord;
-        this.chosenCharacterIndex = savedRecord.characterData.chosenCharacterIndex;
-        StartCoroutine(this.LoadLevel(GameManager.levelNames[savedRecord.levelData.currentLevelIndex]));
-    }
+    // public void ResumeSavedGame(SavedRecord savedRecord)
+    // {
+    //     this.savedRecord = savedRecord;
+    //     this.chosenCharacterIndex = savedRecord.characterData.chosenCharacterIndex;
+    //     StartCoroutine(this.LoadLevel(GameManager.levelNames[savedRecord.levelData.currentLevelIndex]));
+    // }
 
     public void GoToNextStage()
     {
@@ -77,6 +85,7 @@ public class GameManager : MonoBehaviour
 
     public void BackToMainScene()
     {
+        PhotonNetwork.LeaveRoom(false);
         SceneManager.LoadScene("Main");
     }
 
@@ -93,13 +102,15 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator LoadLevel(string levelName)
     {
+        ExitGames.Client.Photon.Hashtable customProperties = PhotonNetwork.LocalPlayer.CustomProperties;
+        customProperties["sceneLoaded"] = false;
+        PhotonNetwork.LocalPlayer.SetCustomProperties(customProperties);
         if (SceneManager.GetActiveScene().name == "Main")
         {
             this.closeOnLoadingLevel.SetActive(false);
             this.showOnLoadingLevel.SetActive(true);
             this.progressText.text = "Loading... 0%";
             this.progressBar.value = 0;
-            yield return new WaitForSeconds(1.0f);
         }
 
         AsyncOperation operation = SceneManager.LoadSceneAsync(levelName);

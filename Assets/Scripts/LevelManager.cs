@@ -1,22 +1,73 @@
 using System;
 using System.Linq;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Photon.Pun;
+using Photon.Realtime;
 
-public class LevelManager : MonoBehaviour
+public class LevelManager : MonoBehaviourPunCallbacks
 {
+    public static LevelManager Instance { get; private set; }
+
     [SerializeField] private ImageEffectManager imageEffectManager;
     [SerializeField] private Cinemachine.CinemachineVirtualCamera virtualCamera;
-    [SerializeField] private Transform world;
+    [SerializeField] private Transform monsterRoot;
+    [SerializeField] private Transform characterRoot;
+    [SerializeField] private PlayerUIController playerUI;
     [SerializeField] private GameObject[] characterPrefabs;
     [SerializeField] private GameObject monsterPrefab;
     [SerializeField] private Vector3 defaultCharacterSpawnPosition;
+    [SerializeField] private Vector3 defaultCharacterTwoSpawnPosition;
 
     private CharacterState character;
+    private CharacterState otherCharacter;
+    private PhotonView view;
 
+    public int alivePlayerCount
+    {
+        get
+        {
+            int count = 0;
+            if (this.character.isAlive)
+            {
+                count++;
+            }
+            if (this.otherCharacter && this.otherCharacter.isAlive)
+            {
+                count++;
+            }
+            return count;
+        }
+    }
 
     private void Awake()
     {
+        LevelManager.Instance = this;
+        ExitGames.Client.Photon.Hashtable customProperties = PhotonNetwork.LocalPlayer.CustomProperties;
+        customProperties["sceneLoaded"] = true;
+        PhotonNetwork.LocalPlayer.SetCustomProperties(customProperties);
+        this.view = this.GetComponent<PhotonView>();
+        this.StartCoroutine(this.StartWhenAllPlayerLoaded());
+    }
+
+    private IEnumerator StartWhenAllPlayerLoaded()
+    {
+        while (true)
+        {
+            if (PhotonNetwork.PlayerListOthers.All(player =>
+            {
+                return player.CustomProperties["sceneLoaded"] != null && (bool)player.CustomProperties["sceneLoaded"];
+            }))
+            {
+                break;
+            }
+            else
+            {
+                print("wait");
+            }
+            yield return null;
+        }
         SavedRecord savedRecord = GameManager.Instance.savedRecord;
         if (savedRecord == null)
         {
@@ -26,16 +77,48 @@ public class LevelManager : MonoBehaviour
         {
             this.LoadLevelWithSavedData(savedRecord);
         }
-    }
-
-    private void Start()
-    {
+        this.playerUI.BindCharacter(this.character, this.character.GetComponent<CharacterSkillSet>());
         this.character.OnDead += () =>
         {
-            this.imageEffectManager.EnableGrayScaleEffect();
+            if (this.alivePlayerCount == 0)
+            {
+                this.imageEffectManager.EnableGrayScaleEffect();
+                GameManager.Instance.ShowGameResult(false);
+            }
+            else if (this.otherCharacter)
+            {
+                this.virtualCamera.Follow = this.otherCharacter.transform;
+            }
         };
         this.virtualCamera.Follow = this.character.transform;
         this.imageEffectManager.ShowOpenSceneBlurTransition();
+    }
+
+    public void BindOtherCharacter(CharacterState character)
+    {
+        this.otherCharacter = character;
+        this.otherCharacter.OnDead += () =>
+        {
+            if (this.alivePlayerCount == 0)
+            {
+                this.imageEffectManager.EnableGrayScaleEffect();
+                GameManager.Instance.ShowGameResult(false);
+            }
+        };
+    }
+
+    public void GoToNextStage()
+    {
+        if (PhotonNetwork.IsMasterClient)
+        {
+            this.view.RPC("RPC_GoToNextStage", RpcTarget.All);
+        }
+    }
+
+    [PunRPC]
+    public void RPC_GoToNextStage()
+    {
+        GameManager.Instance.GoToNextStage();
     }
 
     public SavedRecord GetCurrentState()
@@ -51,7 +134,7 @@ public class LevelManager : MonoBehaviour
 
         // level
         savedLevelData.currentLevelIndex = GameManager.levelNames.Select((name, index) => new { name, index }).First((each) => each.name == SceneManager.GetActiveScene().name).index;
-        Monster[] monsters = this.world.GetComponentsInChildren<Monster>();
+        Monster[] monsters = this.monsterRoot.GetComponentsInChildren<Monster>();
         savedLevelData.monsters = monsters.Select((monster) =>
         {
             SavedMonsterData savedMonsterData = new SavedMonsterData();
@@ -62,7 +145,6 @@ public class LevelManager : MonoBehaviour
         }).ToArray();
 
         // character
-        savedCharacterData.chosenCharacterIndex = GameManager.Instance.chosenCharacterIndex;
         savedCharacterData.currentHealthPoints = this.character.currentHealthPoints;
         savedCharacterData.currentMagicPoints = this.character.currentMagicPoints;
         CharacterSkillSet skillset = this.character.GetComponent<CharacterSkillSet>();
@@ -78,7 +160,7 @@ public class LevelManager : MonoBehaviour
     private void LoadLevelWithDefaultData()
     {
         // spawn player
-        this.character = this.SpawnCharacter(this.defaultCharacterSpawnPosition);
+        this.character = this.SpawnCharacter(PhotonNetwork.LocalPlayer);
     }
 
     private void LoadLevelWithSavedData(SavedRecord savedRecord)
@@ -86,12 +168,12 @@ public class LevelManager : MonoBehaviour
         // spawn player
         SavedCharacterData characterData = savedRecord.characterData;
         Vector3 characterPosition = new Vector3(characterData.currentPositions[0], characterData.currentPositions[1], characterData.currentPositions[2]);
-        this.character = this.SpawnCharacter(characterPosition);
+        this.character = this.SpawnCharacter(PhotonNetwork.LocalPlayer, characterPosition);
         this.character.RecoverState(characterData);
         this.character.GetComponent<CharacterSkillSet>().RecoverState(characterData);
 
         // destroy existed monster
-        foreach (Transform child in this.world)
+        foreach (Transform child in this.monsterRoot)
         {
             if (child.GetComponent<Monster>())
             {
@@ -108,10 +190,14 @@ public class LevelManager : MonoBehaviour
         }
     }
 
-    private CharacterState SpawnCharacter(Vector3 spawnPosition)
+    private CharacterState SpawnCharacter(Player playerData, Vector3? overridePos = null)
     {
-        CharacterState character = Instantiate(this.characterPrefabs[GameManager.Instance.chosenCharacterIndex], spawnPosition, Quaternion.identity).GetComponent<CharacterState>();
-        character.transform.parent = this.world;
+        Vector3 spawnPosition = playerData.IsMasterClient ? this.defaultCharacterSpawnPosition : this.defaultCharacterTwoSpawnPosition;
+        if (overridePos != null)
+        {
+            spawnPosition = (Vector3)overridePos;
+        }
+        CharacterState character = PhotonNetwork.Instantiate(this.characterPrefabs[(int)playerData.CustomProperties["chooseCharacterIndex"]].name, spawnPosition, Quaternion.identity).GetComponent<CharacterState>();
         if (character == null)
         {
             throw new System.Exception("GameObject doesn't have character state component");
@@ -122,11 +208,19 @@ public class LevelManager : MonoBehaviour
     private Monster SpawnMonsters(Vector3 spawnPosition)
     {
         Monster monster = Instantiate(this.monsterPrefab, spawnPosition, Quaternion.identity).GetComponent<Monster>();
-        monster.transform.parent = this.world;
+        monster.transform.parent = this.monsterRoot;
         if (monster == null)
         {
             throw new System.Exception("GameObject doesn't have monster component");
         }
         return monster;
+    }
+
+    public override void OnPlayerLeftRoom(Player otherPlayer)
+    {
+        if (otherPlayer != PhotonNetwork.LocalPlayer)
+        {
+            this.otherCharacter = null;
+        }
     }
 }

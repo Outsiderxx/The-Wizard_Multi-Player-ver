@@ -40,7 +40,7 @@ public class LoadRecordPage : Page
                 Button button = Instantiate(this.recordInfoPrefab, this.recordRoot).GetComponent<Button>();
                 button.onClick.AddListener(() =>
                 {
-                    GameManager.Instance.ResumeSavedGame(this.savedRecordCache[button.transform.GetSiblingIndex()]);
+                    // GameManager.Instance.ResumeSavedGame(this.savedRecordCache[button.transform.GetSiblingIndex()]);
                 });
             }
         }

@@ -3,20 +3,15 @@ using DG.Tweening;
 
 public class FireBall : MonoBehaviour
 {
+    public float damage = 0;
     [SerializeField] private float moveSpeed = 0;
     [SerializeField] private float maxMoveDistance = 100;
-    [SerializeField] private float damage = 0;
 
     public Texture2D woundRampTexture;
     private Sequence sequence;
     private float moveDistance = 0;
 
     private bool isCollided = false;
-
-    private void Awake()
-    {
-        this.damage *= CollectionHelper.IsCollectionCollected("Ring of Strength") ? 1.5f : 1;
-    }
 
     private void Update()
     {

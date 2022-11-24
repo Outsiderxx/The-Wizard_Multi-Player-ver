@@ -8,25 +8,17 @@ public class WizardSkillSet : CharacterSkillSet
     [SerializeField] private int multipleFireBallCount;
     [SerializeField] private float curementPerSecond;
     [SerializeField] private float cureDuration;
-    [SerializeField] private Sprite[] skillSprites;
+    [SerializeField] private LayerMask whatIsCharacter;
 
-    private void Start()
+    public override bool NormalAttack(bool direction)
     {
-        this.normalAttackImage.sprite = this.skillSprites[0];
-        this.skillAImage.sprite = this.skillSprites[1];
-        this.skillBImage.sprite = this.skillSprites[2];
-    }
-
-    public override bool NormalAttack()
-    {
-        if (!base.NormalAttack())
+        if (!base.NormalAttack(direction))
         {
             return false;
         }
 
-        bool direction = Camera.main.ScreenToWorldPoint(Input.mousePosition).x >= this.transform.position.x;
-
         FireBall fireBall = Instantiate(original: this.normalFireBallPrefab).GetComponent<FireBall>();
+        fireBall.damage *= this.state.isRingOfStrengthCollected ? 1.5f : 1;
         fireBall.transform.position = this.movement.root.position;
         fireBall.woundRampTexture = this.woundRampTexture;
         fireBall.GetComponent<SpriteRenderer>().sprite = this.fireballSprite;
@@ -42,24 +34,22 @@ public class WizardSkillSet : CharacterSkillSet
         return true;
     }
 
-    public override bool UseSkillA()
+    public override bool UseSkillA(Vector3 worldPos)
     {
-        if (!base.UseSkillA())
+        if (!base.UseSkillA(worldPos))
         {
             return false;
-
         }
 
-        bool direction = Camera.main.ScreenToWorldPoint(Input.mousePosition).x >= this.transform.position.x;
+        bool direction = worldPos.x >= this.transform.position.x;
         for (int i = 0; i < this.multipleFireBallCount; i++)
         {
             FireBall fireBall = Instantiate(original: this.specialFireBallPrefab).GetComponent<FireBall>();
-            Vector3 mousePosition = Input.mousePosition;
-            mousePosition.z = -Camera.main.transform.position.z;
+            fireBall.damage *= this.state.isRingOfStrengthCollected ? 1.5f : 1;
             fireBall.woundRampTexture = this.woundRampTexture;
             fireBall.transform.position = this.movement.root.position + new Vector3(Random.Range(-1.0f, 1.0f), Random.Range(-1.0f, 1.0f), 0);
             fireBall.GetComponent<SpriteRenderer>().sprite = this.fireballSprite;
-            fireBall.FireAt(Camera.main.ScreenToWorldPoint(mousePosition), i * 0.2f);
+            fireBall.FireAt(worldPos, i * 0.2f);
         }
 
         this.movement.anim.SetBool("IsAttack", true);
@@ -72,17 +62,20 @@ public class WizardSkillSet : CharacterSkillSet
         return true;
     }
 
-    public override bool UseSkillB()
+    public override bool UseSkillB(Vector3 worldPos)
     {
-        if (!base.UseSkillB())
+        CharacterState player = Physics2D.OverlapCircle(worldPos, 2, this.whatIsCharacter)?.GetComponentInParent<CharacterState>();
+        if (!player)
         {
             return false;
-
         }
-        StartCoroutine(this.state.Cure(this.curementPerSecond, this.cureDuration));
-        this.effect.ShowColorTransition(Color.green, (int)this.cureDuration);
+        if (!base.UseSkillB(worldPos))
+        {
+            return false;
+        }
+        StartCoroutine(player.Cure(this.curementPerSecond, this.cureDuration));
+        player.GetComponent<CharacterEffect>().ShowColorTransition(Color.green, (int)this.cureDuration);
         AudioManager.Instance.PlayEffect("Heal");
         return true;
-
     }
 }

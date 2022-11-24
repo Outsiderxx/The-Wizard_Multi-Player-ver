@@ -7,7 +7,6 @@ public class CharacterEventHandler : MonoBehaviour
     private CharacterState state;
     private CharacterEffect effect;
 
-    public System.Action<Item> OnObtainItem;
     public System.Action OnTriggerPortal;
 
     private void Awake()
@@ -18,11 +17,6 @@ public class CharacterEventHandler : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.gameObject.layer == 12)
-        {
-            this.OnObtainItem.Invoke(other.GetComponent<Item>());
-        }
-
         if (other.gameObject.tag == "Portal")
         {
             this.OnTriggerPortal.Invoke();

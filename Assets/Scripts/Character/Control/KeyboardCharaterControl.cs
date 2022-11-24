@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using Photon.Pun;
 
 [RequireComponent(typeof(CharacterMovementControl))]
 public class KeyboardCharaterControl : MonoBehaviour
@@ -7,6 +8,7 @@ public class KeyboardCharaterControl : MonoBehaviour
     private CharacterMovementControl movementControl;
     private CharacterSkillSet skillset;
     private CharacterState state;
+    private PhotonView view;
     private bool jump;
 
 
@@ -15,6 +17,7 @@ public class KeyboardCharaterControl : MonoBehaviour
         this.movementControl = this.GetComponent<CharacterMovementControl>();
         this.skillset = this.GetComponent<CharacterSkillSet>();
         this.state = this.GetComponent<CharacterState>();
+        this.view = this.GetComponent<PhotonView>();
 
         this.state.OnDead += () =>
         {
@@ -35,6 +38,10 @@ public class KeyboardCharaterControl : MonoBehaviour
 
     void Update()
     {
+        if (!view.IsMine)
+        {
+            return;
+        }
         // Read the jump input in Update so button presses aren't missed.
         if (Input.GetButtonDown("Jump"))
         {
@@ -44,20 +51,49 @@ public class KeyboardCharaterControl : MonoBehaviour
         // check if mouse click on UI
         if (Input.GetMouseButtonUp(0) && !EventSystem.current.IsPointerOverGameObject())
         {
-            this.skillset.NormalAttack();
+            bool direction = Camera.main.ScreenToWorldPoint(Input.mousePosition).x >= this.transform.position.x;
+            this.view.RPC("RPC_NormalAttack", RpcTarget.All, direction);
         }
         else if (Input.GetKeyUp(KeyCode.Q))
         {
-            this.skillset.UseSkillA();
+            Vector3 mousePosition = Input.mousePosition;
+            mousePosition.z = -Camera.main.transform.position.z;
+            this.view.RPC("RPC_UseSkillA", RpcTarget.All, Camera.main.ScreenToWorldPoint(mousePosition));
         }
         else if (Input.GetKeyUp(KeyCode.W))
         {
-            this.skillset.UseSkillB();
+            Vector3 mousePosition = Input.mousePosition;
+            mousePosition.z = -Camera.main.transform.position.z;
+            this.view.RPC("RPC_UseSkillB", RpcTarget.All, Camera.main.ScreenToWorldPoint(mousePosition));
         }
         else
         {
-            movementControl.Move(Input.GetAxis("Horizontal"), jump);
+            this.view.RPC("RPC_Move", RpcTarget.All, Input.GetAxis("Horizontal"), jump);
             jump = false;
         }
+    }
+
+    [PunRPC]
+    private void RPC_NormalAttack(bool direction)
+    {
+        this.skillset.NormalAttack(direction);
+    }
+
+    [PunRPC]
+    private void RPC_UseSkillA(Vector3 worldPos)
+    {
+        this.skillset.UseSkillA(worldPos);
+    }
+
+    [PunRPC]
+    private void RPC_UseSkillB(Vector3 worldPos)
+    {
+        this.skillset.UseSkillB(worldPos);
+    }
+
+    [PunRPC]
+    private void RPC_Move(float movement, bool jump)
+    {
+        this.movementControl.Move(movement, jump);
     }
 }
